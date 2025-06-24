@@ -25,6 +25,7 @@
 ## Deployment & Hosting
 - **Platform**: Vercel (seamless Next.js deployment)
 - **Domain**: pacify-prototype.vercel.app
+- **Local Development**: http://localhost:5174
 - **Environment**: Single staging environment
 - **Analytics**: Vercel Analytics (built-in)
 

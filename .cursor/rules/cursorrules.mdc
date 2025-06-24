@@ -1,0 +1,73 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Pacify Project Rules
+
+## SLC-Focused Development
+- **Simple**: Every feature must solve a clear parent need. Reject complexity.
+- **Lovable**: Each UI interaction should feel warm and empathetic. Add micro-delights.
+- **Complete**: Full user flows from onboarding to success state. No dead ends.
+
+## Component Architecture
+- Use shadcn/ui components as base, never edit generated code
+- Create composite components in `src/components/layout/`
+- Keep components under 150 lines, split when longer
+- Always add `data-testid` to new component roots
+
+## TypeScript Standards
+- Strict mode enabled, no `any` types
+- Define interfaces in `src/lib/types.ts`
+- Use Zod for runtime validation
+- Export types alongside components
+
+## Styling Guidelines
+- Mobile-first approach (320px breakpoint)
+- Use design system colors: indigo (primary), emerald (secondary), amber (accent)
+- Consistent spacing: 16px mobile, 24px desktop
+- Touch targets minimum 44px for mobile
+- Use Inter font family throughout
+
+## State Management
+- Zustand for global state (child profile, settings)
+- LocalStorage for persistence
+- React state for local component state
+- No external API for user data
+
+## Performance Requirements
+- LLM API responses < 3 seconds
+- First paint < 1.5 seconds
+- Bundle size < 500KB gzipped
+- Optimize for mobile bandwidth
+
+## User Experience Priorities
+1. **Empathy First**: Every response should validate parent emotions
+2. **Immediate Value**: User gets helpful response in <30 seconds
+3. **Progressive Enhancement**: Core features work without JavaScript
+4. **Accessibility**: All interactive elements have proper labels
+
+## API Design
+- Single `/api/chat` endpoint for LLM communication
+- Zod validation for all inputs
+- Structured response format: empathy + needs + steps
+- Graceful error handling with user-friendly messages
+
+## Testing Approach
+- Unit tests for utilities and pure functions
+- Integration tests for core user flows
+- Manual testing on real mobile devices
+- Focus on error states and edge cases
+
+## Development Workflow
+- Feature branch → PR → auto-deploy to Vercel
+- Type check before commit
+- Mobile-first development
+- Test on slow networks
+
+## Quality Gates
+- Zero TypeScript errors
+- All interactive elements accessible
+- Works on iPhone SE (375px width)
+- LLM responses contextually appropriate
+- Empathetic tone in all copy

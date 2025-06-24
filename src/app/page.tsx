@@ -1,103 +1,155 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import { useState, useEffect } from 'react'
+import { ProfileSetup } from '@/components/layout/ProfileSetup'
+import { ChatInterface } from '@/components/layout/ChatInterface'
+import { Login } from '@/components/Login'
+import { Menu } from '@/components/Menu'
+import { PlaceholderView } from '@/components/PlaceholderView'
+import { useHasCompletedOnboarding, usePacifyStore } from '@/lib/store'
+import { supabase } from '@/lib/supabaseClient'
+import type { User } from '@supabase/supabase-js'
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+export default function HomePage() {
+  const [isClient, setIsClient] = useState(false)
+  const [user, setUser] = useState<User | null>(null)
+  const [isAuthLoading, setIsAuthLoading] = useState(true)
+  const [currentView, setCurrentView] = useState<string>('menu')
+  const [showProfileEdit, setShowProfileEdit] = useState(false)
+  
+  const hasCompletedOnboarding = useHasCompletedOnboarding()
+  const { resetOnboarding, setCurrentUserId } = usePacifyStore()
+  
+  // Handle authentication state
+  useEffect(() => {
+    const initAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+      setIsAuthLoading(false)
+      setIsClient(true)
+    }
+
+    initAuth()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        const newUser = session?.user ?? null
+        setUser(newUser)
+        setIsAuthLoading(false)
+        
+        // Update store with current user ID
+        setCurrentUserId(newUser?.id ?? null)
+        
+        // Reset view on logout
+        if (event === 'SIGNED_OUT') {
+          setCurrentView('menu')
+          setShowProfileEdit(false)
+        }
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [])
+  
+  // Loading state
+  if (!isClient || isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Pacify wird geladen...</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+      </div>
+    )
+  }
+
+  // Show login if not authenticated
+  if (!user) {
+    return <Login />
+  }
+  
+  const handleEditProfile = () => {
+    setShowProfileEdit(true)
+    resetOnboarding()
+  }
+  
+  const handleProfileComplete = () => {
+    setShowProfileEdit(false)
+    setCurrentView('menu')
+  }
+
+  const handleNavigate = (section: string) => {
+    setCurrentView(section)
+  }
+
+  const handleBackToMenu = () => {
+    setCurrentView('menu')
+    setShowProfileEdit(false)
+  }
+  
+  // Show profile setup only if editing (not for initial onboarding)
+  if (showProfileEdit) {
+    return <ProfileSetup onComplete={handleProfileComplete} />
+  }
+  
+  // Skip initial onboarding, go directly to menu
+  if (!hasCompletedOnboarding) {
+    // Auto-complete onboarding on first visit
+    usePacifyStore.getState().completeOnboarding()
+  }
+
+  // Handle different views
+  switch (currentView) {
+    case 'menu':
+      return <Menu user={user} onNavigate={handleNavigate} />
+    
+    case 'problem-solver':
+      return <ChatInterface onEditProfile={handleEditProfile} onBack={handleBackToMenu} user={user} />
+    
+    case 'personalization':
+      return <ProfileSetup onComplete={handleBackToMenu} />
+    
+    case 'parenting-style':
+      return (
+        <PlaceholderView
+          title="Erziehungsstil"
+          description="Entdecke verschiedene Erziehungsansätze und finde heraus, welcher Stil zu dir passt."
+          icon="❤️"
+          onBack={handleBackToMenu}
+        />
+      )
+    
+    case 'daily-challenges':
+      return (
+        <PlaceholderView
+          title="Tägliche Herausforderungen"
+          description="Bewältige alltägliche Erziehungssituationen mit gezielten Tipps und Strategien."
+          icon="📅"
+          onBack={handleBackToMenu}
+        />
+      )
+    
+    case 'communication-quiz':
+      return (
+        <PlaceholderView
+          title="Kommunikations-Quiz"
+          description="Teste deine Kommunikationsfähigkeiten und lerne neue Ansätze kennen."
+          icon="❓"
+          onBack={handleBackToMenu}
+        />
+      )
+    
+    case 'settings':
+      return (
+        <PlaceholderView
+          title="Einstellungen"
+          description="Verwalte deine Kontoeinstellungen und App-Präferenzen."
+          icon="⚙️"
+          onBack={handleBackToMenu}
+        />
+      )
+    
+    default:
+      return <Menu user={user} onNavigate={handleNavigate} />
+  }
 }
