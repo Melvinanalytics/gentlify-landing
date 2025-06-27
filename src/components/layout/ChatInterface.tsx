@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
 import { usePacifyStore, useChildProfile, useMessages, useIsLoading } from '@/lib/store'
-import { NEED_BADGES, INTENT_BUTTONS, type ChatMessage, type AIResponse, type ChatRequest, type ChildProfile, type UserIntent } from '@/lib/types'
+import { NEED_BADGES, INTENT_BUTTONS, type ChatMessage, type AIResponse, type ChatRequest, type ChildProfile, type UserIntent, type Phase1Request, type Phase2Request, type EnhancedAIResponse, type EnhancedChatResponse } from '@/lib/types'
 import { Send, ThumbsUp, ThumbsDown, Settings, Loader2, ArrowLeft } from 'lucide-react'
 
 interface ChatInterfaceProps {
@@ -18,6 +18,9 @@ interface ChatInterfaceProps {
 export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProps) {
   const [input, setInput] = useState('')
   const [selectedIntent, setSelectedIntent] = useState<UserIntent[]>([])
+  const [phase1Response, setPhase1Response] = useState<string>('')
+  const [awaitingIntentSelection, setAwaitingIntentSelection] = useState(false)
+  const [currentUserMessage, setCurrentUserMessage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   
@@ -48,14 +51,16 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
       createdAt: new Date().toISOString()
     }
     
+    const userMessageContent = input.trim()
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+      content: userMessageContent,
       timestamp: new Date()
     }
     
     addMessage(userMessage)
+    setCurrentUserMessage(userMessageContent) // Store for Phase 2
     setInput('')
     setLoading(true)
     
@@ -71,42 +76,68 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
           : new Date().toISOString()
       }
       
-      const request: ChatRequest = {
-        message: input.trim(),
+      // Prepare conversation history for context
+      const conversationHistory = messages
+        .slice(-6) // Last 6 messages for context
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp.toISOString()
+        }))
+      
+      // PHASE 1: Emotional mirroring request
+      const phase1Request: Phase1Request = {
+        message: userMessageContent,
         childProfile: normalizedProfile,
-        userIntent: null // Always start with validation
+        conversationHistory
       }
       
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chat-phase1', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
+        body: JSON.stringify(phase1Request)
       })
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
-      const data = await response.json()
+      const data: EnhancedChatResponse = await response.json()
       
       if (!data.success) {
         throw new Error(data.error || 'Unbekannter Fehler')
       }
       
-      const aiResponse: AIResponse = data.data
+      const phase1Data = data.data
+      if (!phase1Data?.phase1_mirror) {
+        throw new Error('Unvollständige Phase 1 Antwort')
+      }
       
-      // Create formatted AI message with proper timestamp
+      // Store Phase 1 response for Phase 2
+      setPhase1Response(phase1Data.phase1_mirror)
+      
+      // Create formatted AI message for Phase 1 (emotional mirroring)
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: JSON.stringify(aiResponse),
+        content: JSON.stringify({
+          responseType: 'validation',
+          content: { core: phase1Data.phase1_mirror },
+          needsIntentSelection: phase1Data.needsIntentSelection,
+          rawResponse: phase1Data.rawResponse
+        }),
         timestamp: new Date()
       }
       
       addMessage(aiMessage)
       
+      // Set up for intent selection
+      if (phase1Data.needsIntentSelection) {
+        setAwaitingIntentSelection(true)
+      }
+      
     } catch (error) {
-      console.error('Chat error:', error)
+      console.error('Phase 1 Chat error:', error)
       setError({
         hasError: true,
         message: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten'
@@ -121,14 +152,23 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
   }
 
   const handleIntentSelection = async (intents: UserIntent[], originalMessage: string) => {
-    if (!childProfile || isLoading) return
+    if (isLoading) return
     
     setLoading(true)
+    setAwaitingIntentSelection(false) // Clear awaiting state
     
     try {
-      // Find the last user message to use as context
-      const lastUserMessage = messages.filter((m: ChatMessage) => m.role === 'user').pop()
-      const messageToUse = lastUserMessage?.content || originalMessage || "Fortsetzung der vorherigen Anfrage"
+      // Create active profile with fallback
+      const activeProfile = childProfile || {
+        name: 'Mein Kind',
+        ageYears: 4,
+        ageMonths: 0,
+        traits: [],
+        createdAt: new Date().toISOString()
+      }
+      
+      // Use stored current message or fallback
+      const messageToUse = currentUserMessage || originalMessage || "Fortsetzung der vorherigen Anfrage"
       
       // Ensure profile has the correct structure for API compatibility
       const normalizedProfile: ChildProfile = {
@@ -141,45 +181,74 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
           : new Date().toISOString()
       }
       
-      // Make API calls for each selected intent
-      for (const intent of intents) {
-        const request: ChatRequest = {
-          message: messageToUse,
-          childProfile: normalizedProfile,
-          userIntent: intent
-        }
-        
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(request)
-        })
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-        
-        const data = await response.json()
-        
-        if (!data.success) {
-          throw new Error(data.error || 'Unbekannter Fehler')
-        }
-        
-        const aiResponse: AIResponse = data.data
-        
-        // Create formatted AI message with proper timestamp
-        const aiMessage: ChatMessage = {
-          id: (Date.now() + Math.random()).toString(),
-          role: 'assistant',
-          content: JSON.stringify(aiResponse),
-          timestamp: new Date()
-        }
-        
-        addMessage(aiMessage)
+      // Prepare conversation history for context
+      const conversationHistory = messages
+        .slice(-6) // Last 6 messages for context
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp.toISOString()
+        }))
+      
+      // PHASE 2: Expert response with multiple intents
+      const phase2Request: Phase2Request = {
+        message: messageToUse,
+        childProfile: normalizedProfile,
+        userIntents: intents,
+        conversationHistory,
+        phase1Response // Include Phase 1 response for context
       }
       
+      const response = await fetch('/api/chat-phase2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(phase2Request)
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      
+      const data: EnhancedChatResponse = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Unbekannter Fehler')
+      }
+      
+      const phase2Data = data.data
+      if (!phase2Data?.phase2_expert) {
+        throw new Error('Unvollständige Phase 2 Antwort')
+      }
+      
+      // Create enhanced AI message with Phase 2 expert response
+      const aiMessage: ChatMessage = {
+        id: (Date.now() + Math.random()).toString(),
+        role: 'assistant',
+        content: JSON.stringify({
+          responseType: intents[0], // Primary intent
+          content: {
+            core: `${phase2Data.phase2_expert.situation}\n\n${phase2Data.phase2_expert.complication}\n\n${phase2Data.phase2_expert.answer}`,
+            evidence_fact: phase2Data.phase2_expert.evidence_fact,
+            citation: phase2Data.phase2_expert.citation,
+            micro_interventions: phase2Data.phase2_expert.micro_interventions,
+            embedded_needs: phase2Data.phase2_expert.embedded_need
+          },
+          identifiedNeeds: phase2Data.phase2_expert.embedded_need,
+          needsIntentSelection: false,
+          rawResponse: phase2Data.rawResponse,
+          metadata: phase2Data.metadata
+        }),
+        timestamp: new Date()
+      }
+      
+      addMessage(aiMessage)
+      
+      // Clear Phase 1 response and current message
+      setPhase1Response('')
+      setCurrentUserMessage('')
+      
     } catch (error) {
-      console.error('Intent selection error:', error)
+      console.error('Phase 2 Intent selection error:', error)
       setError({
         hasError: true,
         message: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten'

@@ -91,14 +91,55 @@ export const UserIntentSchema = z.enum([
 
 export type UserIntent = z.infer<typeof UserIntentSchema>
 
-// Response Content Types
+// Enhanced Response Content Types for SCQA Framework
+export const SCQAContentSchema = z.object({
+  situation: z.string(),    // Kontext (20%)
+  complication: z.string(), // Kernproblem (20%)
+  question: z.string(),     // Implizite Elternfrage (10%)
+  answer: z.string()        // Lösung mit Mikro-Schritten (50%)
+})
+
+export const Phase1ResponseSchema = z.object({
+  phase1_mirror: z.string() // Emotional mirroring (max 150 tokens)
+})
+
+export const Phase2ExpertSchema = z.object({
+  situation: z.string(),
+  complication: z.string(),
+  answer: z.string(),
+  embedded_need: z.array(z.string()).max(2),
+  evidence_fact: z.string(),
+  citation: z.string(),
+  micro_interventions: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    duration: z.string()
+  })).max(2)
+})
+
+export const EnhancedAIResponseSchema = z.object({
+  phase1_mirror: z.string().optional(),
+  phase2_expert: Phase2ExpertSchema.optional(),
+  metadata: z.object({
+    confidence: z.number().min(0).max(1),
+    tokens_used: z.number(),
+    age_fact_injected: z.string().optional(),
+    temperature_used: z.number().optional(),
+    role_prefix: z.string().optional()
+  }),
+  responsePhase: z.enum(['phase1', 'phase2']),
+  needsIntentSelection: z.boolean().optional(),
+  rawResponse: z.string()
+})
+
+// Legacy Response Content Types (for backward compatibility)
 export const ResponseContentSchema = z.object({
   mirror: z.string().optional(),
   core: z.string(),
   hint: z.string().optional()
 })
 
-// AI Response Structure (New)
+// Legacy AI Response Structure (for backward compatibility)
 export const AIResponseSchema = z.object({
   responseType: z.union([UserIntentSchema, z.literal('validation')]),
   content: ResponseContentSchema,
@@ -107,10 +148,48 @@ export const AIResponseSchema = z.object({
   rawResponse: z.string()
 })
 
+export type SCQAContent = z.infer<typeof SCQAContentSchema>
+export type Phase1Response = z.infer<typeof Phase1ResponseSchema>
+export type Phase2Expert = z.infer<typeof Phase2ExpertSchema>
+export type EnhancedAIResponse = z.infer<typeof EnhancedAIResponseSchema>
 export type AIResponse = z.infer<typeof AIResponseSchema>
 export type ResponseContent = z.infer<typeof ResponseContentSchema>
 
-// API Request/Response Types
+// Enhanced API Request/Response Types for Dual-Phase Protocol
+export const Phase1RequestSchema = z.object({
+  message: z.string().min(1).max(1000),
+  childProfile: ChildProfileSchema,
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+    timestamp: z.string()
+  })).optional()
+})
+
+export const Phase2RequestSchema = z.object({
+  message: z.string().min(1).max(1000),
+  childProfile: ChildProfileSchema,
+  userIntents: z.array(UserIntentSchema).min(1),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+    timestamp: z.string()
+  })).optional(),
+  phase1Response: z.string().optional()
+})
+
+export const EnhancedChatResponseSchema = z.object({
+  success: z.boolean(),
+  data: EnhancedAIResponseSchema.optional(),
+  error: z.string().optional(),
+  responseTime: z.number(),
+  scopeCheck: z.object({
+    isInScope: z.boolean(),
+    referralType: z.enum(['medical_referral', 'legal_referral', 'emergency_resources']).optional()
+  }).optional()
+})
+
+// Legacy API Request/Response Types (for backward compatibility)
 export const ChatRequestSchema = z.object({
   message: z.string().min(1).max(1000),
   childProfile: ChildProfileSchema,
@@ -124,6 +203,9 @@ export const ChatResponseSchema = z.object({
   responseTime: z.number()
 })
 
+export type Phase1Request = z.infer<typeof Phase1RequestSchema>
+export type Phase2Request = z.infer<typeof Phase2RequestSchema>
+export type EnhancedChatResponse = z.infer<typeof EnhancedChatResponseSchema>
 export type ChatRequest = z.infer<typeof ChatRequestSchema>
 export type ChatResponse = z.infer<typeof ChatResponseSchema>
 
