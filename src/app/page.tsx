@@ -8,6 +8,7 @@ import { Menu } from '@/components/Menu'
 import { PlaceholderView } from '@/components/PlaceholderView'
 import { useHasCompletedOnboarding, usePacifyStore } from '@/lib/store'
 import { supabase } from '@/lib/supabaseClient'
+import { useDevAuth } from '@/hooks/useDevAuth'
 import type { User } from '@supabase/supabase-js'
 
 export default function HomePage() {
@@ -19,10 +20,21 @@ export default function HomePage() {
   
   const hasCompletedOnboarding = useHasCompletedOnboarding()
   const { resetOnboarding, setCurrentUserId } = usePacifyStore()
+  const { isDevMode, devUser } = useDevAuth()
   
   // Handle authentication state
   useEffect(() => {
     const initAuth = async () => {
+      // If in dev mode, use mock user
+      if (isDevMode && devUser) {
+        setUser(devUser)
+        setIsAuthLoading(false)
+        setIsClient(true)
+        setCurrentUserId(devUser.id)
+        return
+      }
+
+      // Normal auth flow
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       setIsAuthLoading(false)
@@ -30,6 +42,11 @@ export default function HomePage() {
     }
 
     initAuth()
+
+    // Skip auth subscription in dev mode
+    if (isDevMode) {
+      return
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -49,7 +66,7 @@ export default function HomePage() {
     )
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [isDevMode, devUser])
   
   // Loading state
   if (!isClient || isAuthLoading) {
@@ -63,9 +80,28 @@ export default function HomePage() {
     )
   }
 
-  // Show login if not authenticated
+  // BYPASSED: Show login if not authenticated (skip in dev mode)
+  // if (!user && !isDevMode) {
+  //   return <Login />
+  // }
+  
+  // Force mock user for rapid prototyping
   if (!user) {
-    return <Login />
+    setUser({
+      id: 'dev-user-123',
+      email: 'dev@gentlify.app',
+      app_metadata: {},
+      user_metadata: { name: 'Dev User' },
+      aud: 'authenticated',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      confirmed_at: new Date().toISOString(),
+      email_confirmed_at: new Date().toISOString(),
+      last_sign_in_at: new Date().toISOString(),
+      role: 'authenticated',
+      phone: null,
+      phone_confirmed_at: null,
+    })
   }
   
   const handleEditProfile = () => {

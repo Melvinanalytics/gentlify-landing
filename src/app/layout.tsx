@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { DevModeBanner } from "@/components/DevModeBanner";
 
 export const metadata: Metadata = {
   title: "Gentlify - Empathische Erziehungsberatung",
@@ -30,6 +31,7 @@ export default function RootLayout({
   return (
     <html lang="de" className="h-full">
       <body className="h-full antialiased">
+        <DevModeBanner />
         {children}
       </body>
     </html>
