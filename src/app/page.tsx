@@ -80,12 +80,7 @@ export default function HomePage() {
     )
   }
 
-  // BYPASSED: Show login if not authenticated (skip in dev mode)
-  // if (!user && !isDevMode) {
-  //   return <Login />
-  // }
-  
-  // Force mock user for rapid prototyping
+  // Development mode: authentication bypassed for rapid prototyping
   if (!user) {
     setUser({
       id: 'dev-user-123',

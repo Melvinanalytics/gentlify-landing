@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { ChatRequestSchema, AIResponseSchema, type ChatResponse } from '@/lib/types'
 
-// Initialize OpenAI client with proper error handling
+/**
+ * Creates OpenAI client instance with environment-based configuration
+ * Returns null in development when API key is not configured
+ */
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY
   
@@ -17,17 +20,15 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
   
   try {
-    // Parse and validate request body
     const body = await request.json()
     const validatedRequest = ChatRequestSchema.parse(body)
     
     const { message, childProfile, userIntent } = validatedRequest
     
-    // Check if OpenAI is available
     const openai = getOpenAIClient()
     
     if (!openai) {
-      // Return mock response for development without API key
+      // Development mode: return structured mock responses for testing
       const mockResponse = !userIntent ? {
         responseType: 'validation',
         content: {
