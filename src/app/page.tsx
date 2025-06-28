@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { ProfileSetup } from '@/components/layout/ProfileSetup'
-import { ChatInterface } from '@/components/layout/ChatInterface'
+import { ChatContainer } from '@/components/layout/ChatContainer'
 import { Login } from '@/components/Login'
 import { Menu } from '@/components/Menu'
 import { PlaceholderView } from '@/components/PlaceholderView'
@@ -140,7 +140,7 @@ export default function HomePage() {
       return <Menu user={user} onNavigate={handleNavigate} />
     
     case 'problem-solver':
-      return <ChatInterface onEditProfile={handleEditProfile} onBack={handleBackToMenu} user={user} />
+      return <ChatContainer onEditProfile={handleEditProfile} onBack={handleBackToMenu} user={user} />
     
     case 'personalization':
       return <ProfileSetup onComplete={handleBackToMenu} />

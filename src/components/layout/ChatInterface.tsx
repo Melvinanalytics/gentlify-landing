@@ -6,21 +6,19 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
 import { usePacifyStore, useChildProfile, useMessages, useIsLoading } from '@/lib/store'
-import { NEED_BADGES, INTENT_BUTTONS, type ChatMessage, type AIResponse, type ChatRequest, type ChildProfile, type UserIntent, type Phase1Request, type Phase2Request, type EnhancedAIResponse, type EnhancedChatResponse } from '@/lib/types'
+import { type ChatMessage, type ChildProfile } from '@/lib/types'
 import { Send, ThumbsUp, ThumbsDown, Settings, Loader2, ArrowLeft } from 'lucide-react'
 
 interface ChatInterfaceProps {
   onEditProfile: () => void
   onBack?: () => void
   user?: any // User from Supabase auth
+  isInSidebar?: boolean // New prop to indicate if used within sidebar layout
 }
 
-export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProps) {
+export function ChatInterface({ onEditProfile, onBack, user, isInSidebar = false }: ChatInterfaceProps) {
   const [input, setInput] = useState('')
-  const [selectedIntent, setSelectedIntent] = useState<UserIntent[]>([])
-  const [phase1Response, setPhase1Response] = useState<string>('')
-  const [awaitingIntentSelection, setAwaitingIntentSelection] = useState(false)
-  const [currentUserMessage, setCurrentUserMessage] = useState('')
+  // Simplified state - no more dual-phase logic needed
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   
@@ -60,7 +58,6 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
     }
     
     addMessage(userMessage)
-    setCurrentUserMessage(userMessageContent) // Store for Phase 2
     setInput('')
     setLoading(true)
     
@@ -85,59 +82,42 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
           timestamp: msg.timestamp.toISOString()
         }))
       
-      // PHASE 1: Emotional mirroring request
-      const phase1Request: Phase1Request = {
+      // UNIFIED: Single comprehensive response
+      const chatRequest = {
         message: userMessageContent,
         childProfile: normalizedProfile,
         conversationHistory
       }
       
-      const response = await fetch('/api/chat-phase1', {
+      const response = await fetch('/api/chat-unified', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(phase1Request)
+        body: JSON.stringify(chatRequest)
       })
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
       
-      const data: EnhancedChatResponse = await response.json()
+      const data = await response.json()
       
-      if (!data.success) {
-        throw new Error(data.error || 'Unbekannter Fehler')
+      if (!data.content) {
+        throw new Error('Keine Antwort vom Server erhalten')
       }
       
-      const phase1Data = data.data
-      if (!phase1Data?.phase1_mirror) {
-        throw new Error('Unvollständige Phase 1 Antwort')
-      }
-      
-      // Store Phase 1 response for Phase 2
-      setPhase1Response(phase1Data.phase1_mirror)
-      
-      // Create formatted AI message for Phase 1 (emotional mirroring)
+      // Create simple AI message with unified response
       const aiMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: JSON.stringify({
-          responseType: 'validation',
-          content: { core: phase1Data.phase1_mirror },
-          needsIntentSelection: phase1Data.needsIntentSelection,
-          rawResponse: phase1Data.rawResponse
-        }),
-        timestamp: new Date()
+        content: data.content,
+        timestamp: new Date(),
+        metadata: data.metadata
       }
       
       addMessage(aiMessage)
       
-      // Set up for intent selection
-      if (phase1Data.needsIntentSelection) {
-        setAwaitingIntentSelection(true)
-      }
-      
     } catch (error) {
-      console.error('Phase 1 Chat error:', error)
+      console.error('Chat error:', error)
       setError({
         hasError: true,
         message: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten'
@@ -151,112 +131,7 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
     updateMessageFeedback(messageId, feedback)
   }
 
-  const handleIntentSelection = async (intents: UserIntent[], originalMessage: string) => {
-    if (isLoading) return
-    
-    setLoading(true)
-    setAwaitingIntentSelection(false) // Clear awaiting state
-    
-    try {
-      // Create active profile with fallback
-      const activeProfile = childProfile || {
-        name: 'Mein Kind',
-        ageYears: 4,
-        ageMonths: 0,
-        traits: [],
-        createdAt: new Date().toISOString()
-      }
-      
-      // Use stored current message or fallback
-      const messageToUse = currentUserMessage || originalMessage || "Fortsetzung der vorherigen Anfrage"
-      
-      // Ensure profile has the correct structure for API compatibility
-      const normalizedProfile: ChildProfile = {
-        name: activeProfile.name,
-        ageYears: activeProfile.ageYears || (activeProfile as any).age || 4,
-        ageMonths: activeProfile.ageMonths || 0,
-        traits: activeProfile.traits,
-        createdAt: typeof activeProfile.createdAt === 'string' 
-          ? activeProfile.createdAt 
-          : new Date().toISOString()
-      }
-      
-      // Prepare conversation history for context
-      const conversationHistory = messages
-        .slice(-6) // Last 6 messages for context
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content,
-          timestamp: msg.timestamp.toISOString()
-        }))
-      
-      // PHASE 2: Expert response with multiple intents
-      const phase2Request: Phase2Request = {
-        message: messageToUse,
-        childProfile: normalizedProfile,
-        userIntents: intents,
-        conversationHistory,
-        phase1Response // Include Phase 1 response for context
-      }
-      
-      const response = await fetch('/api/chat-phase2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(phase2Request)
-      })
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      
-      const data: EnhancedChatResponse = await response.json()
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Unbekannter Fehler')
-      }
-      
-      const phase2Data = data.data
-      if (!phase2Data?.phase2_expert) {
-        throw new Error('Unvollständige Phase 2 Antwort')
-      }
-      
-      // Create enhanced AI message with Phase 2 expert response
-      const aiMessage: ChatMessage = {
-        id: (Date.now() + Math.random()).toString(),
-        role: 'assistant',
-        content: JSON.stringify({
-          responseType: intents[0], // Primary intent
-          content: {
-            core: `${phase2Data.phase2_expert.situation}\n\n${phase2Data.phase2_expert.complication}\n\n${phase2Data.phase2_expert.answer}`,
-            evidence_fact: phase2Data.phase2_expert.evidence_fact,
-            citation: phase2Data.phase2_expert.citation,
-            micro_interventions: phase2Data.phase2_expert.micro_interventions,
-            embedded_needs: phase2Data.phase2_expert.embedded_need
-          },
-          identifiedNeeds: phase2Data.phase2_expert.embedded_need,
-          needsIntentSelection: false,
-          rawResponse: phase2Data.rawResponse,
-          metadata: phase2Data.metadata
-        }),
-        timestamp: new Date()
-      }
-      
-      addMessage(aiMessage)
-      
-      // Clear Phase 1 response and current message
-      setPhase1Response('')
-      setCurrentUserMessage('')
-      
-    } catch (error) {
-      console.error('Phase 2 Intent selection error:', error)
-      setError({
-        hasError: true,
-        message: error instanceof Error ? error.message : 'Ein Fehler ist aufgetreten'
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Intent selection removed - now using unified response
   
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current
@@ -271,56 +146,74 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
   }, [input])
   
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          {onBack && (
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Header - only show when NOT in sidebar */}
+      {!isInSidebar && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {onBack && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="p-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Button>
+            )}
+            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+              <span className="text-lg">👶</span>
+            </div>
+            <div>
+              <h1 className="font-semibold text-gray-900">
+                {childProfile?.name}, {childProfile?.ageYears} Jahre {childProfile?.ageMonths ? `${childProfile.ageMonths} Monate` : ''}
+              </h1>
+              <p className="text-sm text-gray-600">
+                {childProfile?.traits.join(' • ')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            {process.env.NODE_ENV === 'development' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  localStorage.removeItem('pacify-store')
+                  window.location.reload()
+                }}
+                className="text-xs"
+              >
+                Reset Store
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
-              onClick={onBack}
-              className="p-2"
+              onClick={onEditProfile}
+              data-testid="edit-profile-button"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </Button>
-          )}
-          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-            <span className="text-lg">👶</span>
-          </div>
-          <div>
-            <h1 className="font-semibold text-gray-900">
-              {childProfile?.name}, {childProfile?.ageYears} Jahre {childProfile?.ageMonths ? `${childProfile.ageMonths} Monate` : ''}
-            </h1>
-            <p className="text-sm text-gray-600">
-              {childProfile?.traits.join(' • ')}
-            </p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          {process.env.NODE_ENV === 'development' && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                localStorage.removeItem('pacify-store')
-                window.location.reload()
-              }}
-              className="text-xs"
-            >
-              Reset Store
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onEditProfile}
-            data-testid="edit-profile-button"
-          >
-            <Settings className="w-4 h-4" />
-          </Button>
+      )}
+      
+      {/* Simple header for sidebar mode */}
+      {isInSidebar && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+              <span className="text-sm">👶</span>
+            </div>
+            <div>
+              <h1 className="font-medium text-gray-900 text-sm">
+                Chat mit {childProfile?.name || 'deinem Kind'}
+              </h1>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
@@ -341,7 +234,6 @@ export function ChatInterface({ onEditProfile, onBack, user }: ChatInterfaceProp
                   <AIMessage 
                     message={message} 
                     onFeedback={(feedback) => handleFeedback(message.id, feedback)}
-                    onIntentSelection={handleIntentSelection}
                   />
                 )}
               </motion.div>
@@ -426,197 +318,69 @@ function UserMessage({ message }: { message: ChatMessage }) {
 
 function AIMessage({ 
   message, 
-  onFeedback,
-  onIntentSelection
+  onFeedback
 }: { 
   message: ChatMessage
   onFeedback: (feedback: 'positive' | 'negative') => void
-  onIntentSelection: (intents: UserIntent[], originalMessage: string) => void
 }) {
-  const [selectedIntents, setSelectedIntents] = useState<UserIntent[]>([])
-  
-  let aiResponse: AIResponse
-  
-  try {
-    aiResponse = JSON.parse(message.content)
-  } catch {
-    return (
-      <div className="flex justify-start">
-        <Card className="max-w-[80%] p-4">
-          <p className="text-red-600">Fehler beim Laden der Antwort</p>
-        </Card>
-      </div>
-    )
+  const formatTime = (timestamp: Date | string) => {
+    const date = timestamp instanceof Date ? timestamp : new Date(timestamp)
+    return date.toLocaleTimeString('de-DE', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
   }
 
-  const getResponseIcon = (responseType: string) => {
-    switch (responseType) {
-      case 'verstehen': return '🧠'
-      case 'verstaendnis_fuer_mich': return '🤗'
-      case 'verstehen_kind': return '👶'
-      case 'loesung': return '💡'
-      case 'validation': return '💝'
-      default: return '💝'
-    }
-  }
-
-  const getResponseTitle = (responseType: string) => {
-    switch (responseType) {
-      case 'verstehen': return 'Situation verstehen'
-      case 'verstaendnis_fuer_mich': return 'Für dich da sein'
-      case 'verstehen_kind': return 'Kind verstehen'
-      case 'loesung': return 'Konkrete Lösung'
-      case 'validation': return 'Verständnis'
-      default: return 'Antwort'
-    }
-  }
-
-  const handleIntentToggle = (intent: UserIntent) => {
-    if (selectedIntents.includes(intent)) {
-      setSelectedIntents(selectedIntents.filter(i => i !== intent))
-    } else {
-      setSelectedIntents([...selectedIntents, intent])
-    }
-  }
-
-  const handleSubmitIntents = () => {
-    if (selectedIntents.length > 0 && onIntentSelection) {
-      onIntentSelection(selectedIntents, "")
-      setSelectedIntents([]) // Reset selection after submitting
-    }
-  }
-  
   return (
     <div className="flex justify-start">
-      <Card className="max-w-[80%] p-6 space-y-4">
-        {/* Response Type Header - only show for non-validation responses */}
-        {aiResponse.responseType !== 'validation' && (
-          <div className="flex items-center gap-2 pb-2 border-b border-gray-100">
-            <span className="text-lg">{getResponseIcon(aiResponse.responseType)}</span>
-            <h3 className="font-semibold text-gray-900">{getResponseTitle(aiResponse.responseType)}</h3>
+      <Card className="max-w-[85%] p-6 space-y-4">
+        {/* AI Avatar */}
+        <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
+          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+            <span className="text-lg">🤖</span>
           </div>
-        )}
-
-        {/* Mirror (only for loesung) */}
-        {aiResponse?.content?.mirror && (
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <p className="text-blue-800 leading-relaxed font-medium">
-              {aiResponse.content.mirror}
-            </p>
+          <div>
+            <h4 className="font-medium text-gray-900">Gentlify Coach</h4>
+            <p className="text-xs text-gray-500">{formatTime(message.timestamp)}</p>
           </div>
-        )}
-        
-        {/* Core Content */}
-        <div>
-          <p className="text-gray-800 leading-relaxed">
-            {aiResponse?.content?.core || 'Keine Antwort verfügbar'}
-          </p>
         </div>
 
-        {/* Hint (only for loesung) */}
-        {aiResponse?.content?.hint && (
-          <div className="bg-amber-50 p-3 rounded-lg">
-            <p className="text-amber-800 leading-relaxed text-sm">
-              💡 <strong>Tipp:</strong> {aiResponse.content.hint}
-            </p>
+        {/* Response Content */}
+        <div className="prose prose-sm max-w-none">
+          <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+            {message.content}
           </div>
-        )}
-        
-        {/* Intent Selection (only when needsIntentSelection is true) */}
-        {aiResponse.needsIntentSelection && (
-          <div className="pt-4 border-t border-gray-100">
-            <p className="text-sm font-medium text-gray-700 mb-3">Was brauchst du jetzt?</p>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4 mb-4">
-              {Object.entries(INTENT_BUTTONS).map(([intent, config]) => (
-                <Button
-                  key={intent}
-                  variant={selectedIntents.includes(intent as UserIntent) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleIntentToggle(intent as UserIntent)}
-                  className={`flex items-center gap-2 text-xs h-auto py-3 px-3 transition-all duration-200 ${
-                    selectedIntents.includes(intent as UserIntent)
-                      ? 'bg-indigo-600 text-white shadow-md ring-2 ring-indigo-600 ring-opacity-50'
-                      : 'hover:bg-gray-50 hover:border-indigo-300'
-                  }`}
-                  data-testid={`intent-selection-${intent}`}
-                >
-                  <span className="text-sm">{config.icon}</span>
-                  <span className="font-medium text-xs">{config.label}</span>
-                </Button>
-              ))}
-            </div>
-            {selectedIntents.length > 0 && (
-              <div className="flex flex-col items-center gap-2 mb-3">
-                <div className="text-xs text-gray-600">
-                  {selectedIntents.length === 1 
-                    ? '1 Bereich ausgewählt' 
-                    : `${selectedIntents.length} Bereiche ausgewählt`}
-                </div>
-                <Button
-                  onClick={handleSubmitIntents}
-                  size="sm"
-                  className="px-6 bg-indigo-600 hover:bg-indigo-700"
-                >
-                  <span className="mr-2">✨</span>
-                  Antwort erhalten
-                </Button>
-              </div>
+        </div>
+
+        {/* Metadata (optional) */}
+        {message.metadata && (
+          <div className="text-xs text-gray-500 pt-2 border-t border-gray-100">
+            {message.metadata.intents_detected && (
+              <span>Erkannte Bedürfnisse: {message.metadata.intents_detected.join(', ')}</span>
             )}
-            <p className="text-xs text-gray-500 text-center">
-              oder schreib es mir einfach in den Chat
-            </p>
           </div>
         )}
-        
-        {/* Feedback */}
-        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-          <p className="text-xs text-gray-500">
-            {(() => {
-              try {
-                const date = message.timestamp instanceof Date 
-                  ? message.timestamp 
-                  : new Date(message.timestamp)
-                return date.toLocaleTimeString('de-DE', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })
-              } catch (error) {
-                console.warn('Error formatting timestamp:', error)
-                return new Date().toLocaleTimeString('de-DE', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })
-              }
-            })()}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onFeedback('positive')}
-              className={`h-8 px-2 ${
-                message.feedback === 'positive' 
-                  ? 'bg-green-100 text-green-700' 
-                  : 'text-gray-500 hover:text-green-600'
-              }`}
-              data-testid="feedback-positive"
-            >
-              <ThumbsUp className="w-4 h-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onFeedback('negative')}
-              className={`h-8 px-2 ${
-                message.feedback === 'negative' 
-                  ? 'bg-red-100 text-red-700' 
-                  : 'text-gray-500 hover:text-red-600'
-              }`}
-              data-testid="feedback-negative"
-            >
-              <ThumbsDown className="w-4 h-4" />
-            </Button>
-          </div>
+
+        {/* Feedback Buttons */}
+        <div className="flex items-center gap-2 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onFeedback('positive')}
+            className="h-8 px-3"
+          >
+            <ThumbsUp className="w-3 h-3 mr-1" />
+            Hilfreich
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onFeedback('negative')}
+            className="h-8 px-3"
+          >
+            <ThumbsDown className="w-3 h-3 mr-1" />
+            Nicht hilfreich
+          </Button>
         </div>
       </Card>
     </div>

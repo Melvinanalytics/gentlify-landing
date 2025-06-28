@@ -30,6 +30,7 @@ interface PacifyStore {
   addMessage: (message: ChatMessage) => void
   updateMessageFeedback: (messageId: string, feedback: 'positive' | 'negative') => void
   clearMessages: () => void
+  loadMessages: (messages: ChatMessage[]) => void
   
   // User-based Chat History (preparation for Supabase integration)
   userChatHistory: Record<string, ChatMessage[]>
@@ -137,6 +138,16 @@ export const usePacifyStore = create<PacifyStore>()(
       
       clearMessages: () => 
         set({ messages: [] }),
+      
+      loadMessages: (messages: ChatMessage[]) => 
+        set({ 
+          messages: messages.map(msg => ({
+            ...msg,
+            timestamp: msg.timestamp instanceof Date 
+              ? msg.timestamp 
+              : new Date(msg.timestamp)
+          }))
+        }),
       
       // User-based Chat History Actions
       addUserMessage: (userId: string, message: ChatMessage) =>
