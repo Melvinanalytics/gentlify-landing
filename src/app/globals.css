@@ -6,30 +6,30 @@
 
 :root {
   --radius: 0.5rem;
-  --background: #ffffff;
+  --background: #F8F6F2;
   --foreground: #1f2937;
-  --card: #ffffff;
+  --card: #F8F6F2;
   --card-foreground: #1f2937;
-  --popover: #ffffff;
+  --popover: #F8F6F2;
   --popover-foreground: #1f2937;
-  --primary: #4f46e5;
+  --primary: #2196F3;
   --primary-foreground: #ffffff;
-  --secondary: #10b981;
+  --secondary: #125A92;
   --secondary-foreground: #ffffff;
-  --muted: #f9fafb;
+  --muted: #FFD3B2;
   --muted-foreground: #6b7280;
-  --accent: #f59e0b;
+  --accent: #FFA476;
   --accent-foreground: #1f2937;
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-  --ring: #4f46e5;
-  --chart-1: #4f46e5;
-  --chart-2: #10b981;
-  --chart-3: #f59e0b;
-  --chart-4: #ef4444;
-  --chart-5: #8b5cf6;
+  --border: #FFD3B2;
+  --input: #FFD3B2;
+  --ring: #2196F3;
+  --chart-1: #2196F3;
+  --chart-2: #125A92;
+  --chart-3: #FFA476;
+  --chart-4: #FFD3B2;
+  --chart-5: #F8F6F2;
   --sidebar: oklch(0.984 0.003 247.858);
   --sidebar-foreground: oklch(0.129 0.042 264.695);
   --sidebar-primary: oklch(0.208 0.042 265.755);
@@ -38,6 +38,13 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+  
+  /* Custom gradient colors */
+  --sky-blue: #2196F3;
+  --deep-ocean-blue: #125A92;
+  --warm-apricot: #FFA476;
+  --soft-peach: #FFD3B2;
+  --off-white: #F8F6F2;
 }
 
 .dark {
@@ -81,11 +88,13 @@
   }
   
   body {
-    background-color: hsl(var(--background));
+    background: linear-gradient(135deg, var(--sky-blue) 0%, var(--warm-apricot) 25%, var(--soft-peach) 50%, var(--off-white) 75%, var(--deep-ocean-blue) 100%);
+    background-attachment: fixed;
     color: hsl(var(--foreground));
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
   }
 
   h1, h2, h3, h4, h5, h6 {
