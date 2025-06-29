@@ -12,15 +12,32 @@ export async function POST(request: NextRequest) {
     
     const { email, name, source } = validatedData
     
-    // Check if email already exists
+    // Check if we're in development mode with dummy credentials
+    const isDevelopment = !process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('dummy')
+    
+    if (isDevelopment) {
+      // In development: simulate successful signup without DB check
+      const mockResponse: NewsletterResponse = {
+        success: true,
+        message: 'Vielen Dank! Du wurdest erfolgreich für den Newsletter angemeldet. (Development Mode)',
+        data: {
+          id: `dev-${Date.now()}`,
+          email,
+          created_at: new Date().toISOString()
+        }
+      }
+      return NextResponse.json(mockResponse)
+    }
+    
+    // Production: Check if email already exists
     const { data: existingSignup, error: checkError } = await supabase
       .from('newsletter_signups')
       .select('email')
       .eq('email', email)
-      .single()
+      .maybeSingle() // Use maybeSingle() instead of single() to handle no results gracefully
     
-    if (checkError && checkError.code !== 'PGRST116') {
-      // PGRST116 = not found, which is what we want
+    if (checkError) {
+      console.error('Newsletter check error:', checkError)
       throw new Error('Fehler beim Überprüfen der E-Mail-Adresse')
     }
     
@@ -32,7 +49,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 409 })
     }
     
-    // Insert new newsletter signup
+    // Insert new newsletter signup (only in production)
     const { data, error } = await supabase
       .from('newsletter_signups')
       .insert([
