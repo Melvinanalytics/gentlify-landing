@@ -40,7 +40,7 @@ export function useChatHistory() {
   }, [chatSessions])
 
   const generateTitle = (messages: ChatMessage[]): string => {
-    const firstUserMessage = messages.find(msg => msg.sender === 'user')?.content
+    const firstUserMessage = messages.find(msg => msg.role === 'user')?.content
     if (!firstUserMessage) return 'Neue Unterhaltung'
     
     // Create a concise title from the first user message

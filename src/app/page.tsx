@@ -94,8 +94,8 @@ export default function HomePage() {
       email_confirmed_at: new Date().toISOString(),
       last_sign_in_at: new Date().toISOString(),
       role: 'authenticated',
-      phone: null,
-      phone_confirmed_at: null,
+      phone: undefined,
+      phone_confirmed_at: undefined,
     })
   }
   

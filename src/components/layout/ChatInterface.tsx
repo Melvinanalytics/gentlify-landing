@@ -110,8 +110,7 @@ export function ChatInterface({ onEditProfile, onBack, user, isInSidebar = false
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: data.content,
-        timestamp: new Date(),
-        metadata: data.metadata
+        timestamp: new Date()
       }
       
       addMessage(aiMessage)
@@ -352,14 +351,6 @@ function AIMessage({
           </div>
         </div>
 
-        {/* Metadata (optional) */}
-        {message.metadata && (
-          <div className="text-xs text-gray-500 pt-2 border-t border-gray-100">
-            {message.metadata.intents_detected && (
-              <span>Erkannte Bedürfnisse: {message.metadata.intents_detected.join(', ')}</span>
-            )}
-          </div>
-        )}
 
         {/* Feedback Buttons */}
         <div className="flex items-center gap-2 pt-2">
