@@ -1,5 +1,25 @@
 import { z } from 'zod'
 
+// Newsletter Signup Types
+export const NewsletterSignupSchema = z.object({
+  email: z.string().email('Bitte gib eine gültige E-Mail-Adresse ein'),
+  name: z.string().optional(),
+  source: z.string().optional() // Landing page tracking
+})
+
+export const NewsletterResponseSchema = z.object({
+  success: z.boolean(),
+  message: z.string(),
+  data: z.object({
+    id: z.string(),
+    email: z.string(),
+    created_at: z.string()
+  }).optional()
+})
+
+export type NewsletterSignup = z.infer<typeof NewsletterSignupSchema>
+export type NewsletterResponse = z.infer<typeof NewsletterResponseSchema>
+
 // Child Profile Types
 export const PersonalityTraitSchema = z.enum([
   'sensibel',
