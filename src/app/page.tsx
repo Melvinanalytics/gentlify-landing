@@ -1,186 +1,163 @@
-'use client'
+import { NewsletterSignup } from '@/components/NewsletterSignup'
 
-import { useState, useEffect } from 'react'
-import { ProfileSetup } from '@/components/layout/ProfileSetup'
-import { ChatContainer } from '@/components/layout/ChatContainer'
-import { Login } from '@/components/Login'
-import { Menu } from '@/components/Menu'
-import { PlaceholderView } from '@/components/PlaceholderView'
-import { useHasCompletedOnboarding, usePacifyStore } from '@/lib/store'
-import { supabase } from '@/lib/supabaseClient'
-import { useDevAuth } from '@/hooks/useDevAuth'
-import type { User } from '@supabase/supabase-js'
+export default function LandingPage() {
+  return (
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <div className="container mx-auto px-4 py-16">
+        <nav className="flex justify-between items-center mb-16">
+          <h1 className="text-2xl font-bold text-primary">Gentlify</h1>
+          <button 
+            className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-secondary transition cursor-not-allowed opacity-75"
+            disabled
+          >
+            App startet bald →
+          </button>
+        </nav>
 
-export default function HomePage() {
-  const [isClient, setIsClient] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
-  const [isAuthLoading, setIsAuthLoading] = useState(true)
-  const [currentView, setCurrentView] = useState<string>('menu')
-  const [showProfileEdit, setShowProfileEdit] = useState(false)
-  
-  const hasCompletedOnboarding = useHasCompletedOnboarding()
-  const { resetOnboarding, setCurrentUserId } = usePacifyStore()
-  const { isDevMode, devUser } = useDevAuth()
-  
-  // Handle authentication state
-  useEffect(() => {
-    const initAuth = async () => {
-      // If in dev mode, use mock user
-      if (isDevMode && devUser) {
-        setUser(devUser)
-        setIsAuthLoading(false)
-        setIsClient(true)
-        setCurrentUserId(devUser.id)
-        return
-      }
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+            Empathische Erziehung
+            <span className="text-primary"> mit KI-Unterstützung</span>
+          </h2>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Gentlify hilft dir in herausfordernden Momenten mit deinem Kind. 
+            Erhalte sofort einfühlsame, bedürfnisorientierte Lösungsvorschläge.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <button
+              className="bg-primary text-white px-8 py-4 rounded-lg text-lg font-medium hover:bg-secondary transition cursor-not-allowed opacity-75"
+              disabled
+            >
+              App startet bald
+            </button>
+            <a 
+              href="#features"
+              className="bg-white text-primary px-8 py-4 rounded-lg text-lg font-medium border-2 border-primary hover:bg-muted transition"
+            >
+              Mehr erfahren
+            </a>
+          </div>
 
-      // Normal auth flow
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setIsAuthLoading(false)
-      setIsClient(true)
-    }
+          {/* Newsletter Signup */}
+          <div className="mb-8">
+            <p className="text-lg font-medium text-gray-700 mb-4">
+              📬 Werde benachrichtigt, wenn Gentlify startet
+            </p>
+            <NewsletterSignup 
+              variant="hero" 
+              source="landing_hero"
+              className="mx-auto"
+            />
+          </div>
 
-    initAuth()
-
-    // Skip auth subscription in dev mode
-    if (isDevMode) {
-      return
-    }
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        const newUser = session?.user ?? null
-        setUser(newUser)
-        setIsAuthLoading(false)
-        
-        // Update store with current user ID
-        setCurrentUserId(newUser?.id ?? null)
-        
-        // Reset view on logout
-        if (event === 'SIGNED_OUT') {
-          setCurrentView('menu')
-          setShowProfileEdit(false)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [isDevMode, devUser])
-  
-  // Loading state
-  if (!isClient || isAuthLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Pacify wird geladen...</p>
+          {/* Trust badges */}
+          <div className="flex flex-wrap gap-6 justify-center text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <span className="text-green-500">✓</span>
+              <span>Wissenschaftlich fundiert</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-500">✓</span>
+              <span>Datenschutz garantiert</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-green-500">✓</span>
+              <span>In 30 Sekunden startklar</span>
+            </div>
+          </div>
         </div>
       </div>
-    )
-  }
 
-  // Development mode: authentication bypassed for rapid prototyping
-  if (!user) {
-    setUser({
-      id: 'dev-user-123',
-      email: 'dev@gentlify.app',
-      app_metadata: {},
-      user_metadata: { name: 'Dev User' },
-      aud: 'authenticated',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      confirmed_at: new Date().toISOString(),
-      email_confirmed_at: new Date().toISOString(),
-      last_sign_in_at: new Date().toISOString(),
-      role: 'authenticated',
-      phone: undefined,
-      phone_confirmed_at: undefined,
-    })
-  }
-  
-  const handleEditProfile = () => {
-    setShowProfileEdit(true)
-    resetOnboarding()
-  }
-  
-  const handleProfileComplete = () => {
-    setShowProfileEdit(false)
-    setCurrentView('menu')
-  }
+      {/* Features Section */}
+      <div id="features" className="container mx-auto px-4 py-16">
+        <h3 className="text-3xl font-bold text-center mb-12">So funktioniert Gentlify</h3>
+        
+        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-xl shadow-sm">
+            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+              <span className="text-2xl">💬</span>
+            </div>
+            <h4 className="text-xl font-semibold mb-3">Situation beschreiben</h4>
+            <p className="text-gray-600">
+              Teile deine aktuelle Herausforderung mit deinem Kind in eigenen Worten mit.
+            </p>
+          </div>
 
-  const handleNavigate = (section: string) => {
-    setCurrentView(section)
-  }
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-xl shadow-sm">
+            <div className="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center mb-4">
+              <span className="text-2xl">🤖</span>
+            </div>
+            <h4 className="text-xl font-semibold mb-3">KI-Analyse</h4>
+            <p className="text-gray-600">
+              Unsere KI versteht die Bedürfnisse deines Kindes und deine Situation.
+            </p>
+          </div>
 
-  const handleBackToMenu = () => {
-    setCurrentView('menu')
-    setShowProfileEdit(false)
-  }
-  
-  // Show profile setup only if editing (not for initial onboarding)
-  if (showProfileEdit) {
-    return <ProfileSetup onComplete={handleProfileComplete} />
-  }
-  
-  // Skip initial onboarding, go directly to menu
-  if (!hasCompletedOnboarding) {
-    // Auto-complete onboarding on first visit
-    usePacifyStore.getState().completeOnboarding()
-  }
+          <div className="bg-white/80 backdrop-blur-sm p-8 rounded-xl shadow-sm">
+            <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4">
+              <span className="text-2xl">💡</span>
+            </div>
+            <h4 className="text-xl font-semibold mb-3">Konkrete Hilfe</h4>
+            <p className="text-gray-600">
+              Erhalte empathische, umsetzbare Lösungsvorschläge in unter 3 Sekunden.
+            </p>
+          </div>
+        </div>
+      </div>
 
-  // Handle different views
-  switch (currentView) {
-    case 'menu':
-      return <Menu user={user} onNavigate={handleNavigate} />
-    
-    case 'problem-solver':
-      return <ChatContainer onEditProfile={handleEditProfile} onBack={handleBackToMenu} user={user} />
-    
-    case 'personalization':
-      return <ProfileSetup onComplete={handleBackToMenu} />
-    
-    case 'parenting-style':
-      return (
-        <PlaceholderView
-          title="Erziehungsstil"
-          description="Entdecke verschiedene Erziehungsansätze und finde heraus, welcher Stil zu dir passt."
-          icon="❤️"
-          onBack={handleBackToMenu}
-        />
-      )
-    
-    case 'daily-challenges':
-      return (
-        <PlaceholderView
-          title="Tägliche Herausforderungen"
-          description="Bewältige alltägliche Erziehungssituationen mit gezielten Tipps und Strategien."
-          icon="📅"
-          onBack={handleBackToMenu}
-        />
-      )
-    
-    case 'communication-quiz':
-      return (
-        <PlaceholderView
-          title="Kommunikations-Quiz"
-          description="Teste deine Kommunikationsfähigkeiten und lerne neue Ansätze kennen."
-          icon="❓"
-          onBack={handleBackToMenu}
-        />
-      )
-    
-    case 'settings':
-      return (
-        <PlaceholderView
-          title="Einstellungen"
-          description="Verwalte deine Kontoeinstellungen und App-Präferenzen."
-          icon="⚙️"
-          onBack={handleBackToMenu}
-        />
-      )
-    
-    default:
-      return <Menu user={user} onNavigate={handleNavigate} />
-  }
+      {/* Newsletter Section */}
+      <div className="container mx-auto px-4 py-16">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-12 text-center max-w-2xl mx-auto">
+          <h3 className="text-3xl font-bold mb-4 text-gray-900">
+            Bleib auf dem Laufenden
+          </h3>
+          <p className="text-xl mb-8 text-gray-600">
+            Erhalte Updates zum Launch und exklusive Erziehungstipps.
+          </p>
+          <NewsletterSignup 
+            variant="default" 
+            source="landing_newsletter_section"
+            className="mx-auto"
+          />
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="container mx-auto px-4 py-16">
+        <div className="bg-primary/90 backdrop-blur-sm rounded-2xl p-12 text-center text-white">
+          <h3 className="text-3xl font-bold mb-4">
+            Bereit für entspanntere Familienmomente?
+          </h3>
+          <p className="text-xl mb-8 opacity-90">
+            Gentlify startet bald. Lass dich benachrichtigen!
+          </p>
+          <div className="max-w-md mx-auto">
+            <NewsletterSignup 
+              variant="hero" 
+              source="landing_cta"
+              className="mx-auto"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="container mx-auto px-4 py-8">
+        <div className="flex flex-col md:flex-row justify-between items-center">
+          <p className="text-gray-600 mb-4 md:mb-0">
+            &copy; 2024 Gentlify. Alle Rechte vorbehalten.
+          </p>
+          <div className="flex items-center gap-4">
+            <NewsletterSignup 
+              variant="inline" 
+              source="footer"
+              className="max-w-xs"
+            />
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
 }
