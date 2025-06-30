@@ -148,6 +148,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Email parameter required' }, { status: 400 })
   }
   
+  // Create Supabase client for GET requests
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  
+  if (!supabaseUrl || !supabaseServiceKey || supabaseUrl.includes('dummy')) {
+    return NextResponse.json({ subscribed: false, error: 'Development mode' })
+  }
+  
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  
   try {
     const { data, error } = await supabase
       .from('newsletter_signups')
