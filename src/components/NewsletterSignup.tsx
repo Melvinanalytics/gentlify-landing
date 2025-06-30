@@ -41,6 +41,9 @@ export function NewsletterSignup({
         source
       }
 
+      // Debug logging
+      console.log('Sending newsletter signup:', signupData)
+      
       const response = await fetch('/api/newsletter', {
         method: 'POST',
         headers: {
@@ -48,6 +51,9 @@ export function NewsletterSignup({
         },
         body: JSON.stringify(signupData),
       })
+      
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
 
       const result: NewsletterResponse = await response.json()
 
