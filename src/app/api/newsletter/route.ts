@@ -12,16 +12,16 @@ export async function POST(request: NextRequest) {
     
     const { email, name, source } = validatedData
     
-    // Check if we're in development mode with dummy credentials
-    const isDevelopment = !process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes('dummy')
+    // Check if we're in mock mode (completely dummy credentials)
+    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('dummy')
     
-    if (isDevelopment) {
-      // In development: simulate successful signup without DB check
+    if (isMockMode) {
+      // Mock mode: simulate successful signup without any DB interaction
       const mockResponse: NewsletterResponse = {
         success: true,
-        message: 'Vielen Dank! Du wurdest erfolgreich für den Newsletter angemeldet. (Development Mode)',
+        message: 'Vielen Dank! Du wurdest erfolgreich für den Newsletter angemeldet. (Mock Mode - keine echte Speicherung)',
         data: {
-          id: `dev-${Date.now()}`,
+          id: `mock-${Date.now()}`,
           email,
           created_at: new Date().toISOString()
         }
