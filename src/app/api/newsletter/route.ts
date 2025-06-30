@@ -30,23 +30,38 @@ export async function POST(request: NextRequest) {
     }
     
     // Production: Check if email already exists
-    const { data: existingSignup, error: checkError } = await supabase
-      .from('newsletter_signups')
-      .select('email')
-      .eq('email', email)
-      .maybeSingle() // Use maybeSingle() instead of single() to handle no results gracefully
-    
-    if (checkError) {
-      console.error('Newsletter check error:', checkError)
-      throw new Error('Fehler beim Überprüfen der E-Mail-Adresse')
-    }
-    
-    if (existingSignup) {
-      const response: NewsletterResponse = {
-        success: false,
-        message: 'Diese E-Mail-Adresse ist bereits für den Newsletter angemeldet.'
+    try {
+      const { data: existingSignup, error: checkError } = await supabase
+        .from('newsletter_signups')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle() // Use maybeSingle() instead of single() to handle no results gracefully
+      
+      if (checkError) {
+        console.error('Newsletter check error details:', {
+          error: checkError,
+          code: checkError.code,
+          message: checkError.message,
+          details: checkError.details,
+          hint: checkError.hint
+        })
+        
+        // If it's not a "no rows" error, throw
+        if (checkError.code !== 'PGRST116') {
+          throw new Error(`Datenbank-Fehler: ${checkError.message}`)
+        }
       }
-      return NextResponse.json(response, { status: 409 })
+      
+      if (existingSignup) {
+        const response: NewsletterResponse = {
+          success: false,
+          message: 'Diese E-Mail-Adresse ist bereits für den Newsletter angemeldet.'
+        }
+        return NextResponse.json(response, { status: 409 })
+      }
+    } catch (dbError) {
+      console.error('Database connection error:', dbError)
+      throw new Error('Verbindungsfehler zur Datenbank. Bitte später erneut versuchen.')
     }
     
     // Insert new newsletter signup (only in production)
@@ -65,7 +80,18 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       console.error('Newsletter signup error:', error)
-      throw new Error('Fehler beim Speichern der Newsletter-Anmeldung')
+      
+      // Check if it's a table not found error
+      if (error.code === '42P01') {
+        throw new Error('Newsletter-Tabelle nicht gefunden. Bitte Datenbank-Setup prüfen.')
+      }
+      
+      // Check if it's a duplicate email error
+      if (error.code === '23505') {
+        throw new Error('Diese E-Mail-Adresse ist bereits angemeldet.')
+      }
+      
+      throw new Error('Fehler beim Speichern: ' + error.message)
     }
     
     const responseTime = Date.now() - startTime
