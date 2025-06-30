@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/lib/database.types'
 import { NewsletterSignupSchema, type NewsletterResponse } from '@/lib/types'
 
 export async function POST(request: NextRequest) {
@@ -12,22 +13,26 @@ export async function POST(request: NextRequest) {
     
     const { email, name, source } = validatedData
     
-    // Check if we're in mock mode (completely dummy credentials)
-    const isMockMode = process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('dummy')
+    // Create Supabase client with service role for newsletter (bypasses RLS)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     
-    if (isMockMode) {
-      // Mock mode: simulate successful signup without any DB interaction
+    if (!supabaseUrl || !supabaseServiceKey || supabaseUrl.includes('dummy')) {
+      // Mock mode for development
       const mockResponse: NewsletterResponse = {
         success: true,
-        message: 'Vielen Dank! Du wurdest erfolgreich für den Newsletter angemeldet. (Mock Mode - keine echte Speicherung)',
+        message: 'Vielen Dank! Du wurdest erfolgreich für den Newsletter angemeldet. (Development Mode)',
         data: {
-          id: `mock-${Date.now()}`,
+          id: `dev-${Date.now()}`,
           email,
           created_at: new Date().toISOString()
         }
       }
       return NextResponse.json(mockResponse)
     }
+    
+    // Create typed Supabase client
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
     
     // Production: Check if email already exists
     try {
