@@ -7,9 +7,14 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now()
   
   try {
+    console.log('Newsletter API called')
+    
     // Parse and validate request body
     const body = await request.json()
+    console.log('Request body:', body)
+    
     const validatedData = NewsletterSignupSchema.parse(body)
+    console.log('Validated data:', validatedData)
     
     const { email, name, source } = validatedData
     
@@ -17,7 +22,12 @@ export async function POST(request: NextRequest) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     
+    console.log('Supabase URL:', supabaseUrl)
+    console.log('Has service key:', !!supabaseServiceKey)
+    console.log('Is dummy URL:', supabaseUrl?.includes('dummy'))
+    
     if (!supabaseUrl || !supabaseServiceKey || supabaseUrl.includes('dummy')) {
+      console.log('Using mock mode')
       // Mock mode for development
       const mockResponse: NewsletterResponse = {
         success: true,
@@ -32,15 +42,19 @@ export async function POST(request: NextRequest) {
     }
     
     // Create typed Supabase client
+    console.log('Creating Supabase client...')
     const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
     
     // Production: Check if email already exists
     try {
+      console.log('Checking for existing email:', email)
       const { data: existingSignup, error: checkError } = await supabase
         .from('newsletter_signups')
         .select('email')
         .eq('email', email)
         .maybeSingle() // Use maybeSingle() instead of single() to handle no results gracefully
+      
+      console.log('Check result:', { existingSignup, checkError })
       
       if (checkError) {
         console.error('Newsletter check error details:', {
@@ -70,6 +84,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Insert new newsletter signup (only in production)
+    console.log('Inserting new signup:', { email, name, source })
     const { data, error } = await supabase
       .from('newsletter_signups')
       .insert([
@@ -82,6 +97,8 @@ export async function POST(request: NextRequest) {
       ])
       .select('id, email, created_at')
       .single()
+    
+    console.log('Insert result:', { data, error })
     
     if (error) {
       console.error('Newsletter signup error:', error)
